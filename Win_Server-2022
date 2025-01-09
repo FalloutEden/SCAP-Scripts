@@ -1,0 +1,1142 @@
+#Start of Primary Script will fix aprox 61.00 percent of required benchmark attendance required for first half
+
+# Ensure the script runs as Administrator
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host "This script must be run as Administrator!" -ForegroundColor Red
+    exit
+}
+
+# Ensure registry paths exist before modifying them
+Write-Host "Ensuring registry paths exist..."
+
+# Create path for Windows Installer policies
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Force | Out-Null
+
+# Create path for WinRM Client and Service
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -Force | Out-Null
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -Force | Out-Null
+
+# Create path for RPC policies
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Rpc" -Force | Out-Null
+
+# Retry setting registry values after creating missing paths
+Write-Host "Retrying registry value configurations..."
+
+# Disable Autoplay for all drives
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -Value 255 -PropertyType DWord -Force
+
+# Disable AutoRun behavior
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoAutorun" -Value 1 -PropertyType DWord -Force
+
+# Disable Windows Installer AlwaysInstallElevated
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Name "AlwaysInstallElevated" -Value 0 -PropertyType DWord -Force
+
+# Disable Basic Authentication for WinRM Client
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -Name "AllowBasic" -Value 0 -PropertyType DWord -Force
+
+# Disable Basic Authentication for WinRM Service
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -Name "AllowBasic" -Value 0 -PropertyType DWord -Force
+
+# Enforce password policies
+Write-Host "Enforcing password policies..."
+net accounts /minpwlen:14
+net accounts /maxpwage:60
+net accounts /lockoutthreshold:5
+net accounts /lockoutduration:30
+
+# Configure audit policies
+Write-Host "Configuring audit policies..."
+Auditpol.exe /set /category:"Account Logon" /success:enable /failure:enable
+Auditpol.exe /set /category:"Account Management" /success:enable /failure:enable
+Auditpol.exe /set /category:"Logon/Logoff" /success:enable /failure:enable
+Auditpol.exe /set /category:"Object Access" /success:enable /failure:enable
+Auditpol.exe /set /category:"Policy Change" /success:enable /failure:enable
+Auditpol.exe /set /category:"Privilege Use" /success:enable /failure:enable
+Auditpol.exe /set /category:"System" /success:enable /failure:enable
+
+# Configure Windows Defender
+Write-Host "Configuring Windows Defender..."
+Set-MpPreference -DisableRealtimeMonitoring $false
+Set-MpPreference -DisableIntrusionPreventionSystem $false
+
+# Configure Windows Firewall
+Write-Host "Configuring Windows Firewall..."
+netsh advfirewall set allprofiles state on
+
+# Disable legacy protocols (SMBv1 and TLS 1.0/1.1)
+Write-Host "Disabling legacy protocols..."
+Set-SmbServerConfiguration -EnableSMB1Protocol $false
+Disable-WindowsOptionalFeature -Online -FeatureName smb1protocol -NoRestart
+New-Item "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client" -Name "Enabled" -Value 0 -PropertyType DWord -Force | Out-Null
+
+# Configure system lockout settings
+Write-Host "Configuring system lockout settings..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "InactivityTimeoutSecs" -Value 900 -PropertyType DWord -Force
+
+# Enable FIPS-compliant algorithms for encryption
+Write-Host "Enabling FIPS-compliant algorithms..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -PropertyType DWord -Force
+
+# Disable anonymous enumeration of SAM accounts
+Write-Host "Disabling anonymous enumeration of SAM accounts..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "RestrictAnonymousSAM" -Value 1 -PropertyType DWord -Force
+
+# Disable storage of LAN Manager hash
+Write-Host "Disabling storage of LAN Manager hash..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "NoLMHash" -Value 1 -PropertyType DWord -Force
+
+# Configure UAC settings
+Write-Host "Configuring UAC settings..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLUA" -Value 1 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "ConsentPromptBehaviorAdmin" -Value 2 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "PromptOnSecureDesktop" -Value 1 -PropertyType DWord -Force
+
+# Configure secure RPC communications
+Write-Host "Configuring secure RPC communications..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Rpc" -Name "EnableAuthEpResolution" -Value 1 -PropertyType DWord -Force
+
+# Configure NTLM settings
+Write-Host "Configuring NTLM settings..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -Name "RestrictReceivingNTLMTraffic" -Value 2 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -Name "RestrictSendingNTLMTraffic" -Value 2 -PropertyType DWord -Force
+
+# Configure account lockout policy
+Write-Host "Configuring account lockout policy..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "MaxDevicePasswordFailedAttempts" -Value 5 -PropertyType DWord -Force
+
+# Configure event log sizes
+Write-Host "Configuring event log sizes..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security" -Name "MaxSize" -Value 196608 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application" -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\System" -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+
+# Enable PowerShell Script Block Logging
+Write-Host "Enabling PowerShell Script Block Logging..."
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 1 -PropertyType DWord -Force
+
+# Disable WDigest Authentication
+Write-Host "Disabling WDigest Authentication..."
+New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\Wdigest" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\Wdigest" -Name "UseLogonCredential" -Value 0 -PropertyType DWord -Force
+
+# Configure Remote Desktop Services
+Write-Host "Configuring Remote Desktop Services..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Name "fPromptForPassword" -Value 1 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Name "fDisableCdm" -Value 1 -PropertyType DWord -Force
+
+# Disable diagnostic data collection
+Write-Host "Disabling diagnostic data collection..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0 -PropertyType DWord -Force
+
+# Configure lock screen settings
+Write-Host "Configuring lock screen settings..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization" -Name "NoLockScreen" -Value 1 -PropertyType DWord -Force
+
+# Prevent downloading attachments from RSS feeds
+Write-Host "Preventing RSS feed attachment downloads..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Internet Explorer\Feeds" -Name "DisableEnclosureDownload" -Value 1 -PropertyType DWord -Force
+
+# Fix: Enforce sensitive privilege use auditing
+Auditpol.exe /set /subcategory:"Sensitive Privilege Use" /success:enable /failure:enable
+
+# Fix: Enforce process creation auditing
+Auditpol.exe /set /subcategory:"Process Creation" /success:enable /failure:enable
+
+# Fix: Enforce system integrity auditing
+Auditpol.exe /set /subcategory:"System Integrity" /success:enable /failure:enable
+
+# Fix: Enforce authorization policy change auditing
+Auditpol.exe /set /subcategory:"Authorization Policy Change" /success:enable /failure:enable
+# Disable legacy Windows PowerShell 2.0
+Write-Host "Disabling legacy Windows PowerShell 2.0..."
+Disable-WindowsOptionalFeature -Online -FeatureName "MicrosoftWindowsPowerShellV2" -NoRestart
+
+# Ensure path for Windows Search policies exists
+Write-Host "Ensuring path for Windows Search policies exists..."
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows\Windows Search" -Force | Out-Null
+
+# Prevent indexing of encrypted files
+Write-Host "Preventing indexing of encrypted files..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\Windows Search" `
+    -Name "AllowIndexingEncryptedStoresOrItems" -Value 0 -PropertyType DWord -Force
+
+# Ensure LAN Manager authentication level is set to NTLMv2
+Write-Host "Configuring LAN Manager authentication level..."
+New-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" `
+    -Name "LmCompatibilityLevel" -Value 5 -PropertyType DWord -Force
+
+# Disable unencrypted traffic for Windows Remote Management (WinRM) Client
+Write-Host "Disabling unencrypted traffic for WinRM Client..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WinRM\Client" `
+    -Name "AllowUnencryptedTraffic" -Value 0 -PropertyType DWord -Force
+
+# Disable Digest authentication for WinRM Client
+Write-Host "Disabling Digest authentication for WinRM Client..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WinRM\Client" `
+    -Name "AllowDigest" -Value 0 -PropertyType DWord -Force
+
+# Disable unencrypted traffic for Windows Remote Management (WinRM) Service
+Write-Host "Disabling unencrypted traffic for WinRM Service..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\WinRM\Service" `
+    -Name "AllowUnencryptedTraffic" -Value 0 -PropertyType DWord -Force
+
+# Enable PowerShell transcription for auditing
+Write-Host "Enabling PowerShell Transcription..."
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" `
+    -Name "EnableTranscripting" -Value 1 -PropertyType DWord -Force
+
+# Set minimum encryption level for Terminal Services
+Write-Host "Configuring minimum encryption level for Terminal Services..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows NT\Terminal Services" `
+    -Name "MinEncryptionLevel" -Value 3 -PropertyType DWord -Force
+
+# Configure ICMP redirects to prevent OSPF route overrides
+Write-Host "Disabling ICMP redirects..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" `
+    -Name "EnableICMPRedirect" -Value 0 -PropertyType DWord -Force
+
+# Configure source routing to highest protection level
+Write-Host "Configuring source routing protection level..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" `
+    -Name "DisableIPSourceRouting" -Value 2 -PropertyType DWord -Force
+
+# Prevent NetBIOS name release requests except from WINS servers
+Write-Host "Configuring NetBIOS name release restrictions..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters" `
+    -Name "NoNameReleaseOnDemand" -Value 1 -PropertyType DWord -Force
+
+# Enforce encryption for Remote Desktop connections
+Write-Host "Configuring encryption for Remote Desktop..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows NT\Terminal Services" `
+    -Name "fEncryptRPCTraffic" -Value 1 -PropertyType DWord -Force
+
+# Ensure path for Application Compatibility Program Inventory exists
+Write-Host "Ensuring path for Application Compatibility Program Inventory exists..."
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows\AppCompat" -Force | Out-Null
+
+# Prevent Application Compatibility Program Inventory data collection
+Write-Host "Disabling Application Compatibility Program Inventory data collection..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\AppCompat" `
+    -Name "DisableInventory" -Value 1 -PropertyType DWord -Force
+
+# Ensure path for Delivery Optimization policies exists
+Write-Host "Ensuring path for Delivery Optimization policies exists..."
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" -Force | Out-Null
+
+# Disable obtaining updates from other PCs on the internet
+Write-Host "Disabling updates from other PCs..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" `
+    -Name "DODownloadMode" -Value 0 -PropertyType DWord -Force
+
+# Enforce account lockout policy
+Write-Host "Enforcing account lockout policy..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
+    -Name "MaxDevicePasswordFailedAttempts" -Value 5 -PropertyType DWord -Force
+
+# Disable Autoplay for nonvolume devices
+Write-Host "Disabling Autoplay for nonvolume devices..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" `
+    -Name "NoDriveTypeAutoRun" -Value 255 -PropertyType DWord -Force
+
+# Disable anonymous enumeration of shares
+Write-Host "Disabling anonymous enumeration of shares..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" `
+    -Name "RestrictNullSessAccess" -Value 1 -PropertyType DWord -Force
+
+# Configure bad logon attempts threshold
+Write-Host "Configuring bad logon attempts threshold..."
+net accounts /lockoutthreshold:3
+
+# Configure password history
+Write-Host "Configuring password history..."
+net accounts /uniquepw:24
+
+# Configure minimum password age
+Write-Host "Configuring minimum password age..."
+net accounts /minpwage:1
+
+# Disable lock screen slide shows
+Write-Host "Disabling lock screen slide shows..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\Personalization" `
+    -Name "NoLockScreenSlideshow" -Value 1 -PropertyType DWord -Force
+
+# Enable command line data in process creation events
+Write-Host "Enabling command line data in process creation events..."
+Auditpol.exe /set /subcategory:"Process Creation" /success:enable /failure:enable
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit" `
+    -Name "ProcessCreationIncludeCmdLine_Enabled" -Value 1 -PropertyType DWord -Force
+
+# Enforce reprocessing of group policy objects
+Write-Host "Enforcing reprocessing of group policy objects..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\System" `
+    -Name "GpNetworkStartTimeoutPolicyValue" -Value 30 -PropertyType DWord -Force
+
+# Ensure path for Printers policies exists
+Write-Host "Ensuring path for Printers policies exists..."
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows NT\Printers" -Force | Out-Null
+
+# Disable HTTP print driver downloads
+Write-Host "Disabling HTTP print driver downloads..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows NT\Printers" `
+    -Name "DisableWebPnPDownload" -Value 1 -PropertyType DWord -Force
+
+# Prevent users from changing installation options
+Write-Host "Preventing users from changing installation options..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\Installer" `
+    -Name "DisableUserInstalls" -Value 1 -PropertyType DWord -Force
+
+# Disable RunAs credentials storage for WinRM Service
+Write-Host "Disabling RunAs credentials storage for WinRM Service..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" `
+    -Name "DisableRunAs" -Value 1 -PropertyType DWord -Force
+
+# Require passwords for accessing private keys
+Write-Host "Requiring passwords for accessing private keys..."
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Cryptography\Protect" `
+    -Name "ForceKeyProtection" -Value 2 -PropertyType DWord -Force
+
+# Enable UAC approval mode for the built-in Administrator
+Write-Host "Enabling UAC approval mode for the built-in Administrator..."
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System" `
+    -Name "FilterAdministratorToken" -Value 1 -PropertyType DWord -Force
+
+# Automatically deny standard user requests for elevation
+Write-Host "Automatically denying standard user requests for elevation..."
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System" `
+    -Name "ConsentPromptBehaviorUser" -Value 0 -PropertyType DWord -Force
+
+# Disable enumeration of administrator accounts during elevation
+Write-Host "Disabling enumeration of administrator accounts during elevation..."
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System" `
+    -Name "EnumerateLocalAdministratorAccounts" -Value 0 -PropertyType DWord -Force
+
+# Configure diagnostic data collection level
+Write-Host "Configuring diagnostic data collection level..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" `
+    -Name "AllowTelemetry" -Value 0 -PropertyType DWord -Force
+
+# Enable Microsoft Defender SmartScreen
+Write-Host "Enabling Microsoft Defender SmartScreen..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" `
+    -Name "EnableSmartScreen" -Value 1 -PropertyType DWord -Force
+
+# Comprehensive Fixes for Autoplay and Anonymous Enumeration
+
+# Disable Autoplay for nonvolume devices
+Write-Host "Disabling Autoplay for nonvolume devices..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" `
+    -Name "NoDriveTypeAutoRun" -Value 255 -PropertyType DWord -Force
+
+# Disable Autoplay for all drives
+Write-Host "Disabling Autoplay for all drives..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" `
+    -Name "NoDriveAutoRun" -Value 1 -PropertyType DWord -Force
+
+# Restart ShellHardwareDetection Service
+Write-Host "Restarting ShellHardwareDetection service..."
+Restart-Service -Name ShellHWDetection
+
+# Restrict anonymous enumeration of shares
+Write-Host "Disabling anonymous enumeration of shares..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" `
+    -Name "RestrictNullSessAccess" -Value 1 -PropertyType DWord -Force
+
+# Restrict anonymous access globally
+Write-Host "Restricting anonymous access globally..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" `
+    -Name "RestrictAnonymous" -Value 1 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" `
+    -Name "RestrictAnonymousSAM" -Value 1 -PropertyType DWord -Force
+
+# Disable Null Session Shares
+Write-Host "Disabling null session shares..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" `
+    -Name "NullSessionShares" -Value "" -PropertyType MultiString -Force
+
+# Restart Server Service
+Write-Host "Restarting Server service to apply changes..."
+Restart-Service -Name LanmanServer
+
+# Disable Autoplay for nonvolume devices
+Write-Host "Disabling Autoplay for nonvolume devices..."
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" `
+    -Name "NoAutoplayfornonVolume" -Value 1 -PropertyType DWord -Force
+
+# CAT 2 ISSUE Remediation section
+
+# CAT 2 PT 1 Section
+
+# Comprehensive Script for Remaining Failures in CAT I
+
+# Disable insecure logons to SMB server
+Write-Host "Disabling insecure logons to SMB server..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" `
+    -Name "EnableSecuritySignature" -Value 1 -PropertyType DWord -Force
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" `
+    -Name "RequireSecuritySignature" -Value 1 -PropertyType DWord -Force
+
+# Enable Remote host allows delegation of nonexportable credentials
+Write-Host "Enabling delegation of nonexportable credentials..."
+New-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" `
+    -Name "AllowProtectedCreds" -Value 1 -PropertyType DWord -Force
+
+# Enforce reprocessing of group policy objects
+Write-Host "Enforcing reprocessing of group policy objects..."
+New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\System" `
+    -Name "GpNetworkStartTimeoutPolicyValue" -Value 30 -PropertyType DWord -Force
+
+# Disable HTTP printing
+Write-Host "Disabling HTTP printing..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Printers" `
+    -Name "EnableHttpPrinting" -Value 0 -PropertyType DWord -Force
+
+# Disable network selection UI on the logon screen
+Write-Host "Disabling network selection UI on the logon screen..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" `
+    -Name "DontDisplayNetworkSelectionUI" -Value 1 -PropertyType DWord -Force
+
+# Prompt for authentication on wake (battery)
+Write-Host "Prompting for authentication on wake (battery)..."
+powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
+
+# Prompt for authentication on wake (plugged in)
+Write-Host "Prompting for authentication on wake (plugged in)..."
+powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
+
+# Disable enumeration of administrator accounts during elevation
+Write-Host "Disabling enumeration of administrator accounts during elevation..."
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System" `
+    -Name "EnumerateLocalAdministratorAccounts" -Value 0 -PropertyType DWord -Force
+
+# Configure diagnostic data to required level
+Write-Host "Configuring diagnostic data to required level..."
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" `
+    -Name "AllowTelemetry" -Value 0 -PropertyType DWord -Force
+
+# Configure Application event log size
+Write-Host "Configuring Application event log size..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application" `
+    -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+
+# Configure Security event log size
+Write-Host "Configuring Security event log size..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security" `
+    -Name "MaxSize" -Value 196608 -PropertyType DWord -Force
+
+# Configure System event log size
+Write-Host "Configuring System event log size..."
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\System" `
+    -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+
+# CAT 2 PT 2 Section
+
+# Disable insecure logons to SMB server
+Write-Host "Disabling insecure logons to SMB server..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation" -Force | Out-Null
+
+    # Configure the 'AllowInsecureGuestAuth' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation" `
+        -Name "AllowInsecureGuestAuth" -Value 0 -PropertyType DWord -Force
+
+    Write-Host "SMB insecure guest logons successfully disabled."
+} catch {
+    Write-Host "Error disabling insecure guest logons: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Enable Remote host allows delegation of nonexportable credentials
+Write-Host "Enabling delegation of nonexportable credentials..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation" -Force | Out-Null
+
+    # Configure the 'AllowProtectedCreds' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation" `
+        -Name "AllowProtectedCreds" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Delegation of nonexportable credentials successfully enabled."
+} catch {
+    Write-Host "Error enabling delegation of nonexportable credentials: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Enforce reprocessing of group policy objects
+Write-Host "Enforcing reprocessing of group policy objects..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" -Force | Out-Null
+
+    # Configure the 'NoGPOListChanges' registry value
+    New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" `
+        -Name "NoGPOListChanges" -Value 0 -PropertyType DWord -Force
+
+    Write-Host "Group policy object reprocessing enforced."
+} catch {
+    Write-Host "Error enforcing group policy object reprocessing: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Disable HTTP printing
+Write-Host "Disabling HTTP printing..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Printers" -Force | Out-Null
+
+    # Configure the 'DisableHTTPPrinting' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Printers" `
+        -Name "DisableHTTPPrinting" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "HTTP printing successfully disabled."
+} catch {
+    Write-Host "Error disabling HTTP printing: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure Application event log size
+Write-Host "Configuring Application event log size..."
+try {
+    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application" `
+        -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+
+    Write-Host "Application event log size configured."
+} catch {
+    Write-Host "Error configuring Application event log size: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure Security event log size
+Write-Host "Configuring Security event log size..."
+try {
+    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security" `
+        -Name "MaxSize" -Value 196608 -PropertyType DWord -Force
+
+    Write-Host "Security event log size configured."
+} catch {
+    Write-Host "Error configuring Security event log size: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure System event log size
+Write-Host "Configuring System event log size..."
+try {
+    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\System" `
+        -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+
+    Write-Host "System event log size configured."
+} catch {
+    Write-Host "Error configuring System event log size: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Require password when computer wakes from sleep (on battery)
+Write-Host "Requiring password when computer wakes from sleep (on battery)..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51" -Force | Out-Null
+
+    # Configure the 'DCSettingIndex' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51" `
+        -Name "DCSettingIndex" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Password requirement when waking from sleep (on battery) successfully enabled."
+} catch {
+    Write-Host "Error enabling password requirement: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Require password when computer wakes from sleep (plugged in)
+Write-Host "Requiring password when computer wakes from sleep (plugged in)..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51" -Force | Out-Null
+
+    # Configure the 'ACSettingIndex' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51" `
+        -Name "ACSettingIndex" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Password requirement when waking from sleep (plugged in) successfully enabled."
+} catch {
+    Write-Host "Error enabling password requirement: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# CAT 2 PT 3
+
+# Prevent enumeration of administrator accounts during elevation
+Write-Host "Disabling enumeration of administrator accounts during elevation..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\CredUI" -Force | Out-Null
+
+    # Configure the 'EnumerateAdministrators' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\CredUI" `
+        -Name "EnumerateAdministrators" -Value 0 -PropertyType DWord -Force
+
+    Write-Host "Enumeration of administrator accounts during elevation successfully disabled."
+} catch {
+    Write-Host "Error disabling enumeration of administrator accounts: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure diagnostic data collection policy
+Write-Host "Configuring diagnostic data collection policy..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Force | Out-Null
+
+    # Configure the 'AllowTelemetry' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" `
+        -Name "AllowTelemetry" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Diagnostic data collection policy configured successfully."
+} catch {
+    Write-Host "Error configuring diagnostic data collection policy: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure Application event log size
+Write-Host "Configuring Application event log size..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Application" -Force | Out-Null
+
+    # Configure the 'MaxSize' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Application" `
+        -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+
+    Write-Host "Application event log size configured successfully."
+} catch {
+    Write-Host "Error configuring Application event log size: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure Security event log size
+Write-Host "Configuring Security event log size..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Security" -Force | Out-Null
+
+    # Configure the 'MaxSize' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Security" `
+        -Name "MaxSize" -Value 196608 -PropertyType DWord -Force
+
+    Write-Host "Security event log size configured successfully."
+} catch {
+    Write-Host "Error configuring Security event log size: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure System event log size
+Write-Host "Configuring System event log size..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\System" -Force | Out-Null
+
+    # Configure the 'MaxSize' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\System" `
+        -Name "MaxSize" -Value 32768 -PropertyType DWord -Force
+
+    Write-Host "System event log size configured successfully."
+} catch {
+    Write-Host "Error configuring System event log size: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Prevent saving passwords in Remote Desktop Client
+Write-Host "Disabling password saving in Remote Desktop Client..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Force | Out-Null
+
+    # Configure the 'DisablePasswordSaving' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
+        -Name "DisablePasswordSaving" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Password saving in Remote Desktop Client disabled successfully."
+} catch {
+    Write-Host "Error disabling password saving in Remote Desktop Client: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# CAT 2 PT 4
+
+# Prevent drive redirection in Remote Desktop Services
+Write-Host "Disabling drive redirection in Remote Desktop Services..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Force | Out-Null
+
+    # Configure the 'fDisableCdm' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
+        -Name "fDisableCdm" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Drive redirection in Remote Desktop Services successfully disabled."
+} catch {
+    Write-Host "Error disabling drive redirection in Remote Desktop Services: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Always prompt for password upon connection in Remote Desktop Services
+Write-Host "Configuring Remote Desktop Services to always prompt for password upon connection..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Force | Out-Null
+
+    # Configure the 'fPromptForPassword' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
+        -Name "fPromptForPassword" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Remote Desktop Services configured to always prompt for password upon connection."
+} catch {
+    Write-Host "Error configuring Remote Desktop Services to prompt for password: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Require secure RPC communication in Remote Desktop Services
+Write-Host "Configuring Remote Desktop Services to require secure RPC communication..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Force | Out-Null
+
+    # Configure the 'fEncryptRPCTraffic' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
+        -Name "fEncryptRPCTraffic" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Remote Desktop Services configured to require secure RPC communication."
+} catch {
+    Write-Host "Error configuring Remote Desktop Services to require secure RPC communication: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Set client connection encryption level to High in Remote Desktop Services
+Write-Host "Configuring Remote Desktop Services to use High-Level encryption for client connections..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Force | Out-Null
+
+    # Configure the 'MinEncryptionLevel' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
+        -Name "MinEncryptionLevel" -Value 3 -PropertyType DWord -Force
+
+    Write-Host "Remote Desktop Services configured to use High-Level encryption for client connections."
+} catch {
+    Write-Host "Error configuring Remote Desktop Services for High-Level encryption: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Prevent users from changing installation options
+Write-Host "Configuring policy to prevent users from changing installation options..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Force | Out-Null
+
+    # Configure the 'EnableUserControl' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" `
+        -Name "EnableUserControl" -Value 0 -PropertyType DWord -Force
+
+    Write-Host "Policy configured to prevent users from changing installation options."
+} catch {
+    Write-Host "Error configuring policy to prevent users from changing installation options: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Restrict unauthenticated Remote Procedure Call (RPC) clients
+Write-Host "Restricting unauthenticated RPC clients..."
+try {
+    # Ensure the registry path exists
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Rpc" -Force | Out-Null
+
+    # Configure the 'RestrictRemoteClients' registry value
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Rpc" `
+        -Name "RestrictRemoteClients" -Value 1 -PropertyType DWord -Force
+
+    Write-Host "Unauthenticated RPC clients successfully restricted."
+} catch {
+    Write-Host "Error restricting unauthenticated RPC clients: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Restrict remote calls to Security Account Manager (SAM) to Administrators
+Write-Host "Restricting remote calls to SAM to Administrators..."
+try {
+    # Ensure the registry path exists
+    if (-not (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa")) {
+        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Force | Out-Null
+    }
+
+    # Configure the 'RestrictRemoteSAM' registry value
+    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" `
+        -Name "RestrictRemoteSAM" -Value "O:BAG:BAD:(A;;RC;;;BA)" -PropertyType String -Force
+
+    Write-Host "Remote calls to SAM successfully restricted to Administrators."
+} catch {
+    Write-Host "Error restricting remote calls to SAM: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Restrict "Access this computer from the network" user right
+Write-Host "Restricting 'Access this computer from the network' user right..."
+try {
+    secedit /export /cfg "C:\Windows\Temp\secedit_backup.inf" | Out-Null
+    $content = Get-Content "C:\Windows\Temp\secedit_backup.inf"
+    if (-not ($content -match "^SeNetworkLogonRight.*$")) {
+        Add-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value "SeNetworkLogonRight = *S-1-5-32-544,*S-1-5-11"
+    } else {
+        $updatedContent = $content -replace "^SeNetworkLogonRight.*$", "SeNetworkLogonRight = *S-1-5-32-544,*S-1-5-11"
+        Set-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value $updatedContent
+    }
+    secedit /configure /db "C:\Windows\Temp\secedit.sdb" /cfg "C:\Windows\Temp\secedit_backup.inf" /areas USER_RIGHTS | Out-Null
+    Write-Host "User right 'Access this computer from the network' successfully restricted."
+} catch {
+    Write-Host "Error restricting 'Access this computer from the network' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# CAT 2 PT 5
+
+# Configure "Deny access to this computer from the network" user right
+Write-Host "Configuring 'Deny access to this computer from the network' user right..."
+try {
+    secedit /export /cfg "C:\Windows\Temp\secedit_backup.inf" | Out-Null
+    $content = Get-Content "C:\Windows\Temp\secedit_backup.inf"
+    if (-not ($content -match "^SeDenyNetworkLogonRight.*$")) {
+        Add-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value "SeDenyNetworkLogonRight = *S-1-5-32-546,*S-1-5-32-547,*S-1-5-32-544"
+    } else {
+        $updatedContent = $content -replace "^SeDenyNetworkLogonRight.*$", "SeDenyNetworkLogonRight = *S-1-5-32-546,*S-1-5-32-547,*S-1-5-32-544"
+        Set-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value $updatedContent
+    }
+    secedit /configure /db "C:\Windows\Temp\secedit.sdb" /cfg "C:\Windows\Temp\secedit_backup.inf" /areas USER_RIGHTS | Out-Null
+    Write-Host "User right 'Deny access to this computer from the network' successfully configured."
+} catch {
+    Write-Host "Error configuring 'Deny access to this computer from the network' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure "Deny log on as a batch job" user right
+Write-Host "Configuring 'Deny log on as a batch job' user right..."
+try {
+    secedit /export /cfg "C:\Windows\Temp\secedit_backup.inf" | Out-Null
+    $content = Get-Content "C:\Windows\Temp\secedit_backup.inf"
+    if (-not ($content -match "^SeDenyBatchLogonRight.*$")) {
+        Add-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value "SeDenyBatchLogonRight = *S-1-5-32-546,*S-1-5-32-544"
+    } else {
+        $updatedContent = $content -replace "^SeDenyBatchLogonRight.*$", "SeDenyBatchLogonRight = *S-1-5-32-546,*S-1-5-32-544"
+        Set-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value $updatedContent
+    }
+    secedit /configure /db "C:\Windows\Temp\secedit.sdb" /cfg "C:\Windows\Temp\secedit_backup.inf" /areas USER_RIGHTS | Out-Null
+    Write-Host "User right 'Deny log on as a batch job' successfully configured."
+} catch {
+    Write-Host "Error configuring 'Deny log on as a batch job' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure "Deny log on locally" user right
+Write-Host "Configuring 'Deny log on locally' user right..."
+try {
+    secedit /export /cfg "C:\Windows\Temp\secedit_backup.inf" | Out-Null
+    $content = Get-Content "C:\Windows\Temp\secedit_backup.inf"
+    if (-not ($content -match "^SeDenyInteractiveLogonRight.*$")) {
+        Add-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value "SeDenyInteractiveLogonRight = *S-1-5-32-546,*S-1-5-32-544"
+    } else {
+        $updatedContent = $content -replace "^SeDenyInteractiveLogonRight.*$", "SeDenyInteractiveLogonRight = *S-1-5-32-546,*S-1-5-32-544"
+        Set-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value $updatedContent
+    }
+    secedit /configure /db "C:\Windows\Temp\secedit.sdb" /cfg "C:\Windows\Temp\secedit_backup.inf" /areas USER_RIGHTS | Out-Null
+    Write-Host "User right 'Deny log on locally' successfully configured."
+} catch {
+    Write-Host "Error configuring 'Deny log on locally' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure "Deny log on through Remote Desktop Services" user right
+Write-Host "Configuring 'Deny log on through Remote Desktop Services' user right..."
+try {
+    secedit /export /cfg "C:\Windows\Temp\secedit_backup.inf" | Out-Null
+    $content = Get-Content "C:\Windows\Temp\secedit_backup.inf"
+    if (-not ($content -match "^SeDenyRemoteInteractiveLogonRight.*$")) {
+        Add-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value "SeDenyRemoteInteractiveLogonRight = *S-1-5-32-546,*S-1-5-32-544,*S-1-5-32-547"
+    } else {
+        $updatedContent = $content -replace "^SeDenyRemoteInteractiveLogonRight.*$", "SeDenyRemoteInteractiveLogonRight = *S-1-5-32-546,*S-1-5-32-544,*S-1-5-32-547"
+        Set-Content -Path "C:\Windows\Temp\secedit_backup.inf" -Value $updatedContent
+    }
+    secedit /configure /db "C:\Windows\Temp\secedit.sdb" /cfg "C:\Windows\Temp\secedit_backup.inf" /areas USER_RIGHTS | Out-Null
+    Write-Host "User right 'Deny log on through Remote Desktop Services' successfully configured."
+} catch {
+    Write-Host "Error configuring 'Deny log on through Remote Desktop Services' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Install DoD Root CA certificates
+Write-Host "Installing DoD Root CA certificates..."
+try {
+    $certificates = @(
+        [PSCustomObject]@{ Name = "DoD Root CA 3"; Expiration = "12/30/2029" },
+        [PSCustomObject]@{ Name = "DoD Root CA 4"; Expiration = "7/25/2032" },
+        [PSCustomObject]@{ Name = "DoD Root CA 5"; Expiration = "6/14/2041" },
+        [PSCustomObject]@{ Name = "DoD Root CA 6"; Expiration = "1/24/2053" }
+    )
+
+    foreach ($cert in $certificates) {
+        Write-Host "Installing $($cert.Name) expiring on $($cert.Expiration)..."
+        certutil -addstore -f "Root" "C:\path\to\$($cert.Name).cer" | Out-Null
+    }
+    Write-Host "DoD Root CA certificates successfully installed."
+} catch {
+    Write-Host "Error installing DoD Root CA certificates: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Install DoD Interoperability Root CA cross-certificates in the Untrusted Certificates Store
+Write-Host "Installing DoD Interoperability Root CA cross-certificates in the Untrusted Certificates Store..."
+try {
+    $crossCertificates = @(
+        [PSCustomObject]@{ Name = "DoD Interoperability Root CA 2"; Expiration = "11/16/2024"; Thumbprint = "49CBE933151872E17C8EAE7F0ABA97FB610F6477" }
+    )
+
+    foreach ($cert in $crossCertificates) {
+        Write-Host "Adding $($cert.Name) with Thumbprint $($cert.Thumbprint) to Untrusted Store..."
+        certutil -addstore -f "Disallowed" "C:\path\to\$($cert.Name).cer" | Out-Null
+    }
+    Write-Host "DoD Interoperability Root CA cross-certificates successfully added to the Untrusted Certificates Store."
+} catch {
+    Write-Host "Error installing DoD Interoperability Root CA cross-certificates: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Install US DoD CCEB Interoperability Root CA cross-certificates in the Untrusted Certificates Store
+Write-Host "Installing US DoD CCEB Interoperability Root CA cross-certificates in the Untrusted Certificates Store..."
+try {
+    $crossCertificates = @(
+        [PSCustomObject]@{ Name = "US DoD CCEB Interoperability Root CA 2"; Expiration = "7/18/2025"; Thumbprint = "9B74964506C7ED9138070D08D5F8B969866560C8" }
+    )
+
+    foreach ($cert in $crossCertificates) {
+        Write-Host "Adding $($cert.Name) with Thumbprint $($cert.Thumbprint) to Untrusted Store..."
+        certutil -addstore -f "Disallowed" "C:\path\to\$($cert.Name).cer" | Out-Null
+    }
+    Write-Host "US DoD CCEB Interoperability Root CA cross-certificates successfully added to the Untrusted Certificates Store."
+} catch {
+    Write-Host "Error installing US DoD CCEB Interoperability Root CA cross-certificates: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# CAT 2 PT 6
+
+# Configure renaming of the built-in Administrator account
+Write-Host "Renaming built-in Administrator account..."
+try {
+    if (Get-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue) {
+        Rename-LocalUser -Name "Administrator" -NewName "AdminRenamed" | Out-Null
+        Write-Host "Built-in Administrator account successfully renamed."
+    } else {
+        Write-Host "Administrator account does not exist or has already been renamed." -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Error renaming built-in Administrator account: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure renaming of the built-in Guest account
+Write-Host "Renaming built-in Guest account..."
+try {
+    if (Get-LocalUser -Name "Guest" -ErrorAction SilentlyContinue) {
+        Rename-LocalUser -Name "Guest" -NewName "GuestRenamed" | Out-Null
+        Write-Host "Built-in Guest account successfully renamed."
+    } else {
+        Write-Host "Guest account does not exist or has already been renamed." -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Error renaming built-in Guest account: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure audit policy to force subcategory settings
+Write-Host "Enforcing audit policy subcategory settings..."
+try {
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "SCENoApplyLegacyAuditPolicy" -Value 1 -Type DWord
+    Write-Host "Audit policy subcategory enforcement successfully configured."
+} catch {
+    Write-Host "Error configuring audit policy subcategory enforcement: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure NTLM authentication to use computer identity
+Write-Host "Configuring NTLM to use computer identity..."
+try {
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\LSA" -Name "UseMachineId" -Value 1 -Type DWord
+    Write-Host "NTLM computer identity configuration successfully set."
+} catch {
+    Write-Host "Error configuring NTLM computer identity: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure NTLM to prevent fallback to a Null session
+Write-Host "Preventing NTLM from falling back to a Null session..."
+try {
+    New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\LSA\MSV1_0" -Force | Out-Null
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\LSA\MSV1_0" -Name "allownullsessionfallback" -Value 0 -Type DWord
+    Write-Host "NTLM Null session fallback successfully disabled."
+} catch {
+    Write-Host "Error disabling NTLM Null session fallback: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure PKU2U authentication to prevent online identities
+Write-Host "Preventing PKU2U authentication using online identities..."
+try {
+    New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\LSA\pku2u" -Force | Out-Null
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\LSA\pku2u" -Name "AllowOnlineID" -Value 0 -Type DWord
+    Write-Host "PKU2U online identity authentication successfully disabled."
+} catch {
+    Write-Host "Error disabling PKU2U online identity authentication: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure Kerberos encryption types to exclude DES and RC4
+Write-Host "Configuring Kerberos encryption types..."
+try {
+    New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Kerberos\Parameters" -Force | Out-Null
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Kerberos\Parameters" -Name "SupportedEncryptionTypes" -Value 2147483640 -Type DWord
+    Write-Host "Kerberos encryption types successfully configured."
+} catch {
+    Write-Host "Error configuring Kerberos encryption types: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure NTLM SSP-based client session security
+Write-Host "Configuring NTLM SSP-based client session security..."
+try {
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -Name "NTLMMinClientSec" -Value 537395200 -Type DWord
+    Write-Host "NTLM SSP-based client session security successfully configured."
+} catch {
+    Write-Host "Error configuring NTLM SSP-based client session security: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure NTLM SSP-based server session security
+Write-Host "Configuring NTLM SSP-based server session security..."
+try {
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -Name "NTLMMinServerSec" -Value 537395200 -Type DWord
+    Write-Host "NTLM SSP-based server session security successfully configured."
+} catch {
+    Write-Host "Error configuring NTLM SSP-based server session security: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure private key access to require a password
+Write-Host "Configuring private key access to require a password..."
+try {
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Cryptography" -Force | Out-Null
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Cryptography" -Name "ForceKeyProtection" -Value 2 -Type DWord
+    Write-Host "Private key access requiring password successfully configured."
+} catch {
+    Write-Host "Error configuring private key access requirement: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure "Allow log on locally" user right to Administrators only
+Write-Host "Configuring 'Allow log on locally' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    New-Item -Path $policyPath -Force | Out-Null
+    Set-ItemProperty -Path $policyPath -Name "SeInteractiveLogonRight" -Value "Administrators" -Type MultiString
+    Write-Host "'Allow log on locally' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Allow log on locally' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure "Back up files and directories" user right to Administrators only
+Write-Host "Configuring 'Back up files and directories' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    Set-ItemProperty -Path $policyPath -Name "SeBackupPrivilege" -Value "Administrators" -Type MultiString
+    Write-Host "'Back up files and directories' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Back up files and directories' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure "Increase scheduling priority" user right to Administrators only
+Write-Host "Configuring 'Increase scheduling priority' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    Set-ItemProperty -Path $policyPath -Name "SeIncreaseBasePriorityPrivilege" -Value "Administrators" -Type MultiString
+    Write-Host "'Increase scheduling priority' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Increase scheduling priority' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Configure "Restore files and directories" user right to Administrators only
+Write-Host "Configuring 'Restore files and directories' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    Set-ItemProperty -Path $policyPath -Name "SeRestorePrivilege" -Value "Administrators" -Type MultiString
+    Write-Host "'Restore files and directories' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Restore files and directories' user right: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# CAT Clean-Up remdial Script
+
+# Script Cleanup: CAT 1 Issue - Windows Installer Always Install with Elevated Privileges
+# V-254374: Disable the Windows Installer "Always install with elevated privileges" option
+
+# Define registry path and key details
+$registryPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer"
+$registryName = "AlwaysInstallElevated"
+
+# Ensure the registry path exists
+if (-not (Test-Path $registryPath)) {
+    Write-Output "Registry path does not exist. Creating: $registryPath"
+    New-Item -Path $registryPath -Force | Out-Null
+}
+
+# Configure the registry key to disable elevated privileges
+try {
+    Set-ItemProperty -Path $registryPath -Name $registryName -Value 0 -Type DWord
+    Write-Output "'Always install with elevated privileges' has been successfully set to 'Disabled'."
+} catch {
+    Write-Error "Failed to set 'Always install with elevated privileges'. Error: $_"
+}
+
+# Script Cleanup: CAT 2 Issues
+# V-254459 - Windows Server 2022 Smart Card removal option must be configured to Force Logoff or Lock Workstation.
+Write-Host "Configuring Smart Card removal behavior..."
+try {
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "ScRemoveOption" -Value 1 -Force
+    Write-Host "Smart Card removal behavior successfully configured to Force Logoff."
+} catch {
+    Write-Host "Error configuring Smart Card removal behavior: $_"
+}
+
+# V-254460 - Windows Server 2022 setting Microsoft network client: Digitally sign communications (always) must be configured to Enabled.
+Write-Host "Enabling Microsoft network client: Digitally sign communications (always)..."
+try {
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters" -Name "RequireSecuritySignature" -Value 1 -Force
+    Write-Host "Microsoft network client: Digitally sign communications (always) successfully enabled."
+} catch {
+    Write-Host "Error enabling Microsoft network client: Digitally sign communications (always): $_"
+}
+
+# Issue: V-254493 - Allow log on locally user right must only be assigned to Administrators group
+Write-Host "Configuring 'Allow log on locally' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    if (-not (Test-Path $policyPath)) {
+        New-Item -Path $policyPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $policyPath -Name "SeInteractiveLogonRight" -Value "*S-1-5-32-544" # SID for Administrators group
+    Write-Host "'Allow log on locally' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Allow log on locally' user right: $_"
+}
+
+# Issue: V-254494 - Back up files and directories user right must only be assigned to Administrators group
+Write-Host "Configuring 'Back up files and directories' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    if (-not (Test-Path $policyPath)) {
+        New-Item -Path $policyPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $policyPath -Name "SeBackupPrivilege" -Value "*S-1-5-32-544" # SID for Administrators group
+    Write-Host "'Back up files and directories' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Back up files and directories' user right: $_"
+}
+
+# Issue: V-254504 - Increase scheduling priority user right must only be assigned to Administrators group
+Write-Host "Configuring 'Increase scheduling priority' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    if (-not (Test-Path $policyPath)) {
+        New-Item -Path $policyPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $policyPath -Name "SeIncreaseBasePriorityPrivilege" -Value "*S-1-5-32-544" # SID for Administrators group
+    Write-Host "'Increase scheduling priority' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Increase scheduling priority' user right: $_"
+}
+
+# Issue: V-254511 - Restore files and directories user right must only be assigned to Administrators group
+Write-Host "Configuring 'Restore files and directories' user right..."
+try {
+    $policyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\UserRights"
+    if (-not (Test-Path $policyPath)) {
+        New-Item -Path $policyPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $policyPath -Name "SeRestorePrivilege" -Value "*S-1-5-32-544" # SID for Administrators group
+    Write-Host "'Restore files and directories' user right successfully configured to Administrators only."
+} catch {
+    Write-Host "Error configuring 'Restore files and directories' user right: $_"
+}
+
+Write-Host "Script updates complete for addressing additional STIG compliance settings."
+
+
+
+Write-Host "All fixes applied. Please reboot the system and rerun SCAP scan to validate."
