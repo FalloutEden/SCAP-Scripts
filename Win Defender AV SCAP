@@ -1,0 +1,188 @@
+# Remediate-Defender-STIGs.ps1
+# Run as Administrator
+
+Write-Host "Applying Microsoft Defender STIG settings..."
+
+# Potentially Unwanted Applications (V-213426)
+Set-MpPreference -PUAProtection Enabled
+
+# Ensure Defender is running/scanning (V-213428, V-213445)
+Set-MpPreference -DisableRealtimeMonitoring $false
+
+# Enable behavior monitoring (V-213446, V-213440)
+Set-MpPreference -DisableBehaviorMonitoring $false
+
+# No override for incoming/outgoing scanning (V-213437, V-213438, V-213443)
+Set-MpPreference -DisableIOAVProtection $false
+
+# No override for downloaded files/attachments (V-213439, V-213444)
+Set-MpPreference -DisableScriptScanning $false
+
+# Enable archive, removable drive, and email scanning (V-213448, V-213449, V-213451)
+Set-MpPreference -DisableArchiveScanning $false
+Set-MpPreference -DisableRemovableDriveScanning $false
+Set-MpPreference -DisableEmailScanning $false
+
+# Weekly scan (V-213450) - adjust schedule/time as needed
+Set-MpPreference -ScanScheduleQuickScanTime 2
+Set-MpPreference -ScanParameters 2
+
+# Signature updates/not exceeding 7 days (V-213452, V-213453, V-213454)
+Set-MpPreference -SignatureUpdateInterval 24
+Set-MpPreference -SignatureUpdateCatchupInterval 24
+Update-MpSignature -AsJob
+
+# Automatic exclusions (V-213431)
+Set-MpPreference -DisableAutoExclusions $false
+
+# Clear all exclusions (V-213429, V-213430)
+(Get-MpPreference).ExclusionPath | ForEach-Object {
+    Remove-MpPreference -ExclusionPath $_
+}
+(Get-MpPreference).ExclusionProcess | ForEach-Object {
+    Remove-MpPreference -ExclusionProcess $_
+}
+
+# Disable local override for MAPS reporting (V-213432)
+Set-MpPreference -DisableBlockAtFirstSeen $false
+
+# MAPS/Cloud checks, membership, safe samples (V-213433, V-213434, V-213435)
+Set-MpPreference -MAPSReporting 2
+Set-MpPreference -SubmitSamplesConsent 2
+
+# Network Protection (V-213436, V-213463)
+Set-MpPreference -EnableNetworkProtection 1
+
+# Automatic remediation for threats (V-213455, V-213464, V-213465, V-213466)
+Set-MpPreference -SevereThreatDefaultAction 2
+Set-MpPreference -HighThreatDefaultAction 1
+Set-MpPreference -ModerateThreatDefaultAction 1
+Set-MpPreference -LowThreatDefaultAction 1
+
+# Attack Surface Reduction rules (V-213456..V-213462)
+Add-MpPreference -AttackSurfaceReductionRules_Ids "BE9BA2D9-53EA-4CDC-84E5-9B1EEEE46550" -AttackSurfaceReductionRules_Actions Enabled
+Add-MpPreference -AttackSurfaceReductionRules_Ids "D4F940AB-401B-4EFC-AADC-AD5F3C50688A" -AttackSurfaceReductionRules_Actions Enabled
+Add-MpPreference -AttackSurfaceReductionRules_Ids "3B576869-A4EC-4529-8536-B80A7769E899" -AttackSurfaceReductionRules_Actions Enabled
+Add-MpPreference -AttackSurfaceReductionRules_Ids "75668C1F-73B5-4CF0-BB93-3ECF5CB7CC84" -AttackSurfaceReductionRules_Actions Enabled
+Add-MpPreference -AttackSurfaceReductionRules_Ids "D3E037E1-3EB8-44C8-A917-57927947596D" -AttackSurfaceReductionRules_Actions Enabled
+Add-MpPreference -AttackSurfaceReductionRules_Ids "5BEB7EFE-FD9A-4556-801D-275E5FFC04CC" -AttackSurfaceReductionRules_Actions Enabled
+Add-MpPreference -AttackSurfaceReductionRules_Ids "D2AFE88E-ED66-4F84-AB58-0DFA22D357ED" -AttackSurfaceReductionRules_Actions Enabled
+
+#CAT 1 Clean UP
+#PUP issue
+
+Write-Host "Defender STIG remediation complete."
+Get-MpPreference | Format-List
+
+# Ensure required keys exist
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows Defender" -Force | Out-Null
+
+# Configure Potentially Unwanted Application (PUA) detection to 'Block'
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender" `
+  -Name "PUAProtection" -Type DWord -Value 1  # 1 = Block, 0 = Disabled
+
+# Optional: Force an immediate signature update to ensure PUA protection takes effect
+Update-MpSignature -AsJob
+
+Write-Host "Potentially Unwanted Applications (PUA) protection has been enabled and set to 'Block'. A restart or signature update may be required for full effect."
+
+#Spyware AV Fix CAT1 ISSUE
+
+# Fix both Spyware and Virus definition age to 7 days
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows Defender" -Name "Signature Updates" -Force | Out-Null
+
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Signature Updates" `
+  -Name "ASSignatureDue" -Type DWord -Value 7
+
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Signature Updates" `
+  -Name "AVSignatureDue" -Type DWord -Value 7
+
+# Remediate SCAP Issues for Defender STIGs
+Write-Host "Starting remediation for Defender SCAP issues..."
+
+# Daily Definition Updates (WNDF-AV-000030)
+Write-Host "Setting daily definition updates..."
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Signature Updates" `
+  -Name "SignatureDefinitionUpdateOnDay" -Type DWord -Value 0
+Update-MpSignature -AsJob
+
+# Severe Threat Remediation (WNDF-AV-000031)
+Write-Host "Ensuring 'Threats' registry key exists..."
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows Defender" -Name "Threats" -Force | Out-Null
+
+Write-Host "Configuring severe threat remediation action..."
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Threats" `
+  -Name "ThreatSeverityDefaultAction_5" -Type DWord -Value 3
+
+# Block Executable Content from Email (WNDF-AV-000032)
+Write-Host "Enabling ASR rule to block executable content from email..."
+Add-MpPreference -AttackSurfaceReductionRules_Ids "BE9BA2D9-53EA-4CDC-84E5-9B1EEEE46550" `
+  -AttackSurfaceReductionRules_Actions Enabled
+
+# Refresh Group Policy
+Write-Host "Refreshing Group Policy..."
+gpupdate /force | Out-Null
+
+# Verification Steps
+Write-Host "Verifying applied settings..."
+Write-Host "Verifying daily definition updates..."
+Get-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Signature Updates" `
+  -Name "SignatureDefinitionUpdateOnDay"
+
+Write-Host "Verifying severe threat remediation action..."
+Get-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Threats" `
+  -Name "ThreatSeverityDefaultAction_5"
+
+Write-Host "Verifying ASR rules..."
+Get-MpPreference | Select-Object -ExpandProperty AttackSurfaceReductionRules_Actions
+
+Write-Host "SCAP remediation complete. Please re-scan to confirm compliance."
+
+# SCAP Remediation Script for V-213449, V-213450, V-213451
+Write-Host "Starting SCAP Remediation for V-213449, V-213450, and V-213451..."
+
+# V-213449: Enable removable drive scanning
+Write-Host "Configuring removable drive scanning..."
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Scan" -Force | Out-Null
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Scan" `
+  -Name "DisableRemovableDriveScanning" -Value 0 -Type DWord
+Start-Sleep -Seconds 2
+Write-Host "Removable drive scanning configured."
+
+# V-213450: Set weekly scheduled scan to Monday
+Write-Host "Configuring weekly scheduled scan..."
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Scan" `
+  -Name "ScheduleDay" -Value 2 -Type DWord
+Start-Sleep -Seconds 2
+Write-Host "Weekly scheduled scan configured for Monday."
+
+# V-213451: Enable email scanning
+Write-Host "Enabling email scanning..."
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Scan" `
+  -Name "DisableEmailScanning" -Value 0 -Type DWord
+Start-Sleep -Seconds 2
+Write-Host "Email scanning enabled."
+
+# Refresh Group Policy and Defender settings
+Write-Host "Refreshing policies and configurations..."
+gpupdate /force | Out-Null
+
+Write-Host "SCAP remediation complete. Please re-scan to confirm compliance."
+
+# Ensure the Spynet key exists
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows Defender" -Name "Spynet" -Force | Out-Null
+
+# 1) Block at First Sight => DisableBlockAtFirstSeen = 0
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Spynet" `
+  -Name "DisableBlockAtFirstSeen" -Type DWord -Value 0
+
+# 2) Join Microsoft MAPS => SpyNetReporting = 2 (Advanced)
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender\Spynet" `
+  -Name "SpyNetReporting" -Type DWord -Value 2
+
+# 3) Send safe samples => SubmitSamplesConsent = 1
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows Defender" `
+  -Name "SubmitSamplesConsent" -Type DWord -Value 1
+
+
+
