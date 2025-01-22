@@ -1,0 +1,400 @@
+# Import necessary modules
+Import-Module GroupPolicy
+
+# Function to set registry keys
+function Set-RegistryKey {
+    param (
+        [string]$Path,
+        [string]$Name,
+        [string]$Value,
+        [Microsoft.Win32.RegistryValueKind]$Type
+    )
+    
+    if (-not (Test-Path $Path)) {
+        New-Item -Path $Path -Force | Out-Null
+    }
+    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+}
+
+# Function to set 
+# Function to set registry keys
+function Set-RegistryKey {
+    param (
+        [string]$Path,
+        [string]$Name,
+        [string]$Value,
+        [Microsoft.Win32.RegistryValueKind]$Type
+    )
+    
+    if (-not (Test-Path $Path)) {
+        New-Item -Path $Path -Force | Out-Null
+    }
+    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+}
+
+# Base registry path for Microsoft Edge policies
+$EdgePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+
+# 1. Disable InPrivate mode
+Set-RegistryKey -Path $EdgePolicyPath -Name "InPrivateModeAvailability" -Value 1 -Type DWord
+
+# 2. Disable Guest mode
+Set-RegistryKey -Path $EdgePolicyPath -Name "BrowserGuestModeEnabled" -Value 0 -Type DWord
+
+# 3. Disable saving browser history
+Set-RegistryKey -Path $EdgePolicyPath -Name "SavingBrowserHistoryDisabled" -Value 1 -Type DWord
+
+# 4. Disable password manager
+Set-RegistryKey -Path $EdgePolicyPath -Name "PasswordManagerEnabled" -Value 0 -Type DWord
+
+# 5. Disable autofill for addresses
+Set-RegistryKey -Path $EdgePolicyPath -Name "AutofillAddressEnabled" -Value 0 -Type DWord
+
+# 6. Disable autofill for credit cards
+Set-RegistryKey -Path $EdgePolicyPath -Name "AutofillCreditCardEnabled" -Value 0 -Type DWord
+
+# 7. Disable QUIC protocol
+Set-RegistryKey -Path $EdgePolicyPath -Name "QuicAllowed" -Value 0 -Type DWord
+
+# 8. Configure minimum TLS version to 1.2
+Set-RegistryKey -Path $EdgePolicyPath -Name "SSLVersionMin" -Value "tls1.2" -Type String
+
+# 9. Disable the Collections feature
+Set-RegistryKey -Path $EdgePolicyPath -Name "CollectionsEnabled" -Value 0 -Type DWord
+
+# 10. Disable the Share Experience feature
+Set-RegistryKey -Path $EdgePolicyPath -Name "EdgeSharingEnabled" -Value 0 -Type DWord
+
+# Apply Group Policy Settings
+Invoke-GPUpdate -Force
+
+Write-Output "Microsoft Edge hardening script (Part 2) executed successfully."
+Group Policy Preferences
+function Set-GPRegistryValue {
+    param (
+        [string]$KeyPath,
+        [string]$ValueName,
+        [string]$ValueType,
+        [string]$Value
+    )
+    
+    New-GPRegistryValue -Name "Microsoft Edge Hardening" -Key $KeyPath -ValueName $ValueName -ValueType $ValueType -Value $Value
+}
+
+# Example: Set 'Do not sync browser data to Microsoft accounts'
+$KeyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+Set-RegistryKey -Path $KeyPath -Name "SyncDisabled" -Value 1 -Type DWord
+
+# Example: Set 'Send Do Not Track requests'
+Set-RegistryKey -Path $KeyPath -Name "SendDoNotTrack" -Value 1 -Type DWord
+
+# Example: Configure the home page URL
+Set-RegistryKey -Path $KeyPath -Name "HomepageLocation" -Value "https://www.example.com" -Type String
+
+# Example: Configure pop-up blocking
+Set-RegistryKey -Path $KeyPath -Name "PopupsBlockedForUrls" -Value "*" -Type String
+
+# Apply Group Policy Settings (if applicable)
+Invoke-GPUpdate -Force
+
+Write-Output "Microsoft Edge hardening script executed successfully."
+
+# Function to set registry keys
+function Set-RegistryKey {
+    param (
+        [string]$Path,
+        [string]$Name,
+        [string]$Value,
+        [Microsoft.Win32.RegistryValueKind]$Type
+    )
+    
+    if (-not (Test-Path $Path)) {
+        New-Item -Path $Path -Force | Out-Null
+    }
+    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+}
+
+# Base registry path for Microsoft Edge policies
+$EdgePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+
+# 1. Disable InPrivate mode
+Set-RegistryKey -Path $EdgePolicyPath -Name "InPrivateModeAvailability" -Value 1 -Type DWord
+
+# 2. Disable Guest mode
+Set-RegistryKey -Path $EdgePolicyPath -Name "BrowserGuestModeEnabled" -Value 0 -Type DWord
+
+# 3. Disable saving browser history
+Set-RegistryKey -Path $EdgePolicyPath -Name "SavingBrowserHistoryDisabled" -Value 1 -Type DWord
+
+# 4. Disable password manager
+Set-RegistryKey -Path $EdgePolicyPath -Name "PasswordManagerEnabled" -Value 0 -Type DWord
+
+# 5. Disable autofill for addresses
+Set-RegistryKey -Path $EdgePolicyPath -Name "AutofillAddressEnabled" -Value 0 -Type DWord
+
+# 6. Disable autofill for credit cards
+Set-RegistryKey -Path $EdgePolicyPath -Name "AutofillCreditCardEnabled" -Value 0 -Type DWord
+
+# 7. Disable QUIC protocol
+Set-RegistryKey -Path $EdgePolicyPath -Name "QuicAllowed" -Value 0 -Type DWord
+
+# 8. Configure minimum TLS version to 1.2
+Set-RegistryKey -Path $EdgePolicyPath -Name "SSLVersionMin" -Value "tls1.2" -Type String
+
+# 9. Disable the Collections feature
+Set-RegistryKey -Path $EdgePolicyPath -Name "CollectionsEnabled" -Value 0 -Type DWord
+
+# 10. Disable the Share Experience feature
+Set-RegistryKey -Path $EdgePolicyPath -Name "EdgeSharingEnabled" -Value 0 -Type DWord
+
+# Apply Group Policy Settings
+Invoke-GPUpdate -Force
+
+Write-Output "Microsoft Edge hardening script (Part 2) executed successfully."
+
+# Import necessary modules
+Import-Module GroupPolicy
+
+# Function to set registry keys
+function Set-RegistryKey {
+    param (
+        [string]$Path,
+        [string]$Name,
+        [string]$Value,
+        [Microsoft.Win32.RegistryValueKind]$Type
+    )
+    
+    if (-not (Test-Path $Path)) {
+        New-Item -Path $Path -Force | Out-Null
+    }
+    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+}
+
+# Function to set Group Policy Preferences
+function Set-GPRegistryValue {
+    param (
+        [string]$KeyPath,
+        [string]$ValueName,
+        [string]$ValueType,
+        [string]$Value
+    )
+    
+    New-GPRegistryValue -Name "Microsoft Edge Hardening" -Key $KeyPath -ValueName $ValueName -ValueType $ValueType -Value $Value
+}
+
+# Example: Set 'Do not sync browser data to Microsoft accounts'
+$KeyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+Set-RegistryKey -Path $KeyPath -Name "SyncDisabled" -Value 1 -Type DWord
+
+# Example: Set 'Send Do Not Track requests'
+Set-RegistryKey -Path $KeyPath -Name "SendDoNotTrack" -Value 1 -Type DWord
+
+# Example: Configure the home page URL
+Set-RegistryKey -Path $KeyPath -Name "HomepageLocation" -Value "https://www.example.com" -Type String
+
+# Example: Configure pop-up blocking
+Set-RegistryKey -Path $KeyPath -Name "PopupsBlockedForUrls" -Value "*" -Type String
+
+# Additional Settings for DISA STIG Compliance
+# Disable InPrivate mode
+Set-RegistryKey -Path $KeyPath -Name "InPrivateModeAvailability" -Value 1 -Type DWord
+
+# Disable Guest mode
+Set-RegistryKey -Path $KeyPath -Name "BrowserGuestModeEnabled" -Value 0 -Type DWord
+
+# Disable saving browser history
+Set-RegistryKey -Path $KeyPath -Name "SavingBrowserHistoryDisabled" -Value 1 -Type DWord
+
+# Disable password manager
+Set-RegistryKey -Path $KeyPath -Name "PasswordManagerEnabled" -Value 0 -Type DWord
+
+# Disable autofill for addresses
+Set-RegistryKey -Path $KeyPath -Name "AutofillAddressEnabled" -Value 0 -Type DWord
+
+# Disable autofill for credit cards
+Set-RegistryKey -Path $KeyPath -Name "AutofillCreditCardEnabled" -Value 0 -Type DWord
+
+# Disable QUIC protocol
+Set-RegistryKey -Path $KeyPath -Name "QuicAllowed" -Value 0 -Type DWord
+
+# Configure minimum TLS version to 1.2
+Set-RegistryKey -Path $KeyPath -Name "SSLVersionMin" -Value "tls1.2" -Type String
+
+# Disable the Collections feature
+Set-RegistryKey -Path $KeyPath -Name "CollectionsEnabled" -Value 0 -Type DWord
+
+# Disable the Share Experience feature
+Set-RegistryKey -Path $KeyPath -Name "EdgeSharingEnabled" -Value 0 -Type DWord
+
+# Disable printing to PDF
+Set-RegistryKey -Path $KeyPath -Name "PrintToPDFEnabled" -Value 0 -Type DWord
+
+# Disable developer tools
+Set-RegistryKey -Path $KeyPath -Name "DeveloperToolsAvailability" -Value 2 -Type DWord
+
+# Configure SmartScreen protection
+Set-RegistryKey -Path $KeyPath -Name "SmartScreenEnabled" -Value 1 -Type DWord
+
+# Disable extensions
+Set-RegistryKey -Path $KeyPath -Name "ExtensionInstallBlocklist" -Value "*" -Type MultiString
+
+# Disable browser sign-in
+Set-RegistryKey -Path $KeyPath -Name "BrowserSignin" -Value 0 -Type DWord
+
+# Disable importing autofill form data
+Set-RegistryKey -Path $KeyPath -Name "ImportAutofillFormData" -Value 0 -Type DWord
+
+# Disable importing bookmarks
+Set-RegistryKey -Path $KeyPath -Name "ImportBookmarks" -Value 0 -Type DWord
+
+# Disable importing browser settings
+Set-RegistryKey -Path $KeyPath -Name "ImportBrowserSettings" -Value 0 -Type DWord
+
+# Disable importing browsing history
+Set-RegistryKey -Path $KeyPath -Name "ImportBrowsingHistory" -Value 0 -Type DWord
+
+# Disable importing homepage
+Set-RegistryKey -Path $KeyPath -Name "ImportHomepage" -Value 0 -Type DWord
+
+# Disable importing saved passwords
+Set-RegistryKey -Path $KeyPath -Name "ImportSavedPasswords" -Value 0 -Type DWord
+
+# Apply Group Policy Settings
+Invoke-GPUpdate -Force
+
+Write-Output "Microsoft Edge hardening script updated with additional controls executed successfully."
+
+# Import necessary modules
+Import-Module GroupPolicy
+
+# Function to set registry keys
+function Set-RegistryKey {
+    param (
+        [string]$Path,
+        [string]$Name,
+        [string]$Value,
+        [Microsoft.Win32.RegistryValueKind]$Type
+    )
+    
+    if (-not (Test-Path $Path)) {
+        New-Item -Path $Path -Force | Out-Null
+    }
+    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+}
+
+# Function to set Group Policy Preferences
+function Set-GPRegistryValue {
+    param (
+        [string]$KeyPath,
+        [string]$ValueName,
+        [string]$ValueType,
+        [string]$Value
+    )
+    
+    New-GPRegistryValue -Name "Microsoft Edge Hardening" -Key $KeyPath -ValueName $ValueName -ValueType $ValueType -Value $Value
+}
+
+# Example: Set 'Do not sync browser data to Microsoft accounts'
+$KeyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+Set-RegistryKey -Path $KeyPath -Name "SyncDisabled" -Value 1 -Type DWord
+
+# Example: Set 'Send Do Not Track requests'
+Set-RegistryKey -Path $KeyPath -Name "SendDoNotTrack" -Value 1 -Type DWord
+
+# Example: Configure the home page URL
+Set-RegistryKey -Path $KeyPath -Name "HomepageLocation" -Value "https://www.example.com" -Type String
+
+# Example: Configure pop-up blocking
+Set-RegistryKey -Path $KeyPath -Name "PopupsBlockedForUrls" -Value "*" -Type String
+
+# Additional Settings
+# Disable InPrivate mode
+Set-RegistryKey -Path $KeyPath -Name "InPrivateModeAvailability" -Value 1 -Type DWord
+
+# Disable Guest mode
+Set-RegistryKey -Path $KeyPath -Name "BrowserGuestModeEnabled" -Value 0 -Type DWord
+
+# Disable saving browser history
+Set-RegistryKey -Path $KeyPath -Name "SavingBrowserHistoryDisabled" -Value 1 -Type DWord
+
+# Disable password manager
+Set-RegistryKey -Path $KeyPath -Name "PasswordManagerEnabled" -Value 0 -Type DWord
+
+# Disable autofill for addresses
+Set-RegistryKey -Path $KeyPath -Name "AutofillAddressEnabled" -Value 0 -Type DWord
+
+# Disable autofill for credit cards
+Set-RegistryKey -Path $KeyPath -Name "AutofillCreditCardEnabled" -Value 0 -Type DWord
+
+# Disable QUIC protocol
+Set-RegistryKey -Path $KeyPath -Name "QuicAllowed" -Value 0 -Type DWord
+
+# Configure minimum TLS version to 1.2
+Set-RegistryKey -Path $KeyPath -Name "SSLVersionMin" -Value "tls1.2" -Type String
+
+# Disable the Collections feature
+Set-RegistryKey -Path $KeyPath -Name "CollectionsEnabled" -Value 0 -Type DWord
+
+# Disable the Share Experience feature
+Set-RegistryKey -Path $KeyPath -Name "EdgeSharingEnabled" -Value 0 -Type DWord
+
+# Additional Security Settings
+# Enable Enhanced Security Mode
+Set-RegistryKey -Path $KeyPath -Name "EnhancedSecurityModeEnabled" -Value 1 -Type DWord
+
+# Disable browser extensions
+Set-RegistryKey -Path $KeyPath -Name "ExtensionInstallBlocklist" -Value "*" -Type String
+
+# Disable WebRTC
+Set-RegistryKey -Path $KeyPath -Name "WebRtcAllowPublicInterfaceOnly" -Value 1 -Type DWord
+
+# Disable developer tools
+Set-RegistryKey -Path $KeyPath -Name "DeveloperToolsAvailability" -Value 2 -Type DWord
+
+# Block third-party cookies
+Set-RegistryKey -Path $KeyPath -Name "BlockThirdPartyCookies" -Value 1 -Type DWord
+
+# Disable automatic downloads
+Set-RegistryKey -Path $KeyPath -Name "AutomaticDownloadsBlockedForUrls" -Value "*" -Type String
+
+# Prevent printing from the browser
+Set-RegistryKey -Path $KeyPath -Name "PrintingEnabled" -Value 0 -Type DWord
+
+# Disable synchronization of browser settings to the cloud
+Set-RegistryKey -Path $KeyPath -Name "CloudPolicyOverridesPlatformPolicy" -Value 0 -Type DWord
+
+# Additional Batch of Security Settings
+# Disable form data saving
+Set-RegistryKey -Path $KeyPath -Name "FormSuggestEnabled" -Value 0 -Type DWord
+
+# Enable strict site isolation
+Set-RegistryKey -Path $KeyPath -Name "SitePerProcess" -Value 1 -Type DWord
+
+# Prevent installation of apps from the Edge Web Store
+Set-RegistryKey -Path $KeyPath -Name "WebAppInstallForceList" -Value "" -Type MultiString
+
+# Configure SmartScreen protection
+Set-RegistryKey -Path $KeyPath -Name "SmartScreenEnabled" -Value 1 -Type DWord
+
+# Disable autofill for payment instruments
+Set-RegistryKey -Path $KeyPath -Name "AutofillPaymentInstrumentEnabled" -Value 0 -Type DWord
+
+# Prevent extensions from collecting browsing data
+Set-RegistryKey -Path $KeyPath -Name "ExtensionManagement" -Value "{""blocked"":[]}" -Type String
+
+# Force all cookies to be session cookies
+Set-RegistryKey -Path $KeyPath -Name "ForceSessionCookies" -Value 1 -Type DWord
+
+# Disable browser sync for favorites
+Set-RegistryKey -Path $KeyPath -Name "FavoritesSyncEnabled" -Value 0 -Type DWord
+
+# Block insecure content on HTTPS pages
+Set-RegistryKey -Path $KeyPath -Name "InsecureContentAllowedForUrls" -Value "" -Type String
+
+# Enable password leak detection
+Set-RegistryKey -Path $KeyPath -Name "PasswordLeakDetectionEnabled" -Value 1 -Type DWord
+
+# Apply Group Policy Settings
+Invoke-GPUpdate -Force
+
+Write-Output "Microsoft Edge hardening script executed successfully."
